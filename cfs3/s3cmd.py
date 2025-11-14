@@ -12,6 +12,7 @@ from io import StringIO
 import argparse
 from cfs3.drs_view import drs_view, drs_metaview, drs_select
 import bitmath
+import warnings
 
 
 logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
@@ -188,7 +189,11 @@ class s3cmd(cmd2.Cmd):
         self.prompt = 's3> '
         self.debug = False
         self.alias, self.bucket, self.path = None, None, None
-        self.locations = " ".join(get_locations(config_file))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")  # ensure warnings are captured
+            self.locations = " ".join(get_locations(config_file))
+            if w:
+                self.poutput(_err(str(w[-1].message)))
         self.buckets = []
         self.config = config_file
 
@@ -246,7 +251,9 @@ class s3cmd(cmd2.Cmd):
         self.log.debug(f'[navconfig] is seeing {bits}')
         if bits[0] != self.alias:
             try:
-                self.client = get_client(bits[0], config_file=self.config)
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    self.client = get_client(bits[0], config_file=self.config)
             except ValueError as e:
                 self.poutput(_err(e))
                 return
