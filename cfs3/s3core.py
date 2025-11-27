@@ -54,8 +54,8 @@ def get_client(alias, config_file=None):
         api = {'endpoint':'url','access_key':'accessKey','secret_key':'secretKey'}
         try:
             kw = {k:credentials[v] for k,v in api.items()}
-        except KeyError:
-            raise KeyError(f"Cannot find {v} in credentials supplied")
+        except KeyError as e:
+            raise KeyError(f"Cannot find {e.args[0]} in credentials supplied")
         kw['secure'] = secure
         endpoint = kw['endpoint']
         slashes = endpoint.find('//')

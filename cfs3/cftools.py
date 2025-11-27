@@ -6,6 +6,12 @@ from pathlib import Path
 import json
 
 class CFSplitter:
+    """
+    Provides a class factory for splitting multivariable files into multiple
+    single variable files, one at a time via the ``split_one'' method. 
+    The class contructor sets up the method of handling the metadata and output file names, 
+    and where the split files should go.
+    """
 
     def __init__(self, 
                 filename_handler=None, 
@@ -97,6 +103,14 @@ class CFSplitter:
 
 
 class CFuploader (CFSplitter):
+    """
+    This a class factory for splitting and uploading multi-variable files.
+    Details of the splitting capability are outlined in the ``CFSplitter''
+    documentation, the addition here is the use of the Uploader class
+    to carry out uploading to an S3 store, and in doing so, ensure
+    that the relevant metadata is assoiciated with the object (as this
+    cannot be changed after object creation).
+    """
 
     def __init__(self, alias, bucket, *args, **kwargs):
         super(self).__init__(*args,**kwargs)

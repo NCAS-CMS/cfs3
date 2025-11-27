@@ -1,23 +1,16 @@
 from pathlib import Path
-
 from cfs3.s3core import get_client, sanitise_metadata, desanitise_metadata
 import os
 import time
 import inspect
-from functools import wraps
 import logging
 
-def mirror_signature(reference):
-    """Make the wrapped function adopt the same signature as `reference`."""
-    def decorator(func):
-        @wraps(reference)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-        wrapper.__signature__ = inspect.signature(reference)
-        return wrapper
-    return decorator
 
 class Uploader:
+    """
+    Class utilised to handle the upload of files with associated metadata
+    to an object store.
+    """
 
     def __init__(self, alias, 
                     minio_config='~/.mc/config.json', 
@@ -98,7 +91,7 @@ class Uploader:
         self.logger.info(f'Upload time for {object_name} was {e2-e1:.2f}s (with verification {e3-e2:.2f}s')
 
 
-    def upload_files(self, globstring, bucket, meta_func=None, objName_func=None):
+    def upload_files(self, globstring, bucket, meta_func=None, objName_func=None, move_to_s3=False):
         """ 
         Upload file which match globstring, and if provided, use meta_func to
         create/extract metadata, and also if provided, use objName_func to
@@ -108,31 +101,32 @@ class Uploader:
         for path in paths:
             metadata = meta_func(path) if meta_func else None
             objname = objName_func(path) if objName_func else None
-            self.upload_file(path, bucket=bucket, metadata=metadata, object_name=objname)
+            if move_to_s3:
+                self.move_file_to_s3(path, bucket=bucket, metadata=metadata, object_name=objname)
+            else:
+                self.upload_file(path, bucket=bucket, metadata=metadata, object_name=objname)
 
 
-    @mirror_signature(upload_file)
-    def move_file_to_s3(self, *args, **kwargs):
+    def move_file_to_s3(self, file_path, *args, **kwargs):
         """ 
-        Same as upload file, excpet we force a minimum of verification=1 because in this
+        Same as upload file, exceptt we force a minimum of verification=1 because in this
         case we remove the file when it has been uploaded!
         """
-        kwargs['verification'] = max(1,kwargs['verification'])
+        existing_verification = self.verify
+        self.verify = min(1, self.verify)
         self.upload_file(*args, **kwargs)
         os.remove(file_path)
+        self.verify = existing_verification
 
 
-    @mirror_signature(upload_files)
-    def move_files_to_s3(self, *args, **kwargs):
+    def move_files_to_s3(self, globstring, *args, **kwargs):
         """ 
-        Same as upload files, excpet we force a minimum of verification=1 because in this
+        Same as upload files, except we force a minimum of verification=1 because in this
         case we remove the file when it has been uploaded!
         """
-        paths = Path.glob(globstring)
-        for path in paths:
-            metadata = meta_func(path) if meta_func else None
-            objname = objName_func(path) if objName_func else None
-            self.move_file_to_s3(path, bucket=bucket, metadata=metadata, object_name=objname)
+        kwargs['move_to_s3'] = True
+        self.upload_files(globstring, *args, **kwargs)
+       
 
     def do_verify(self, verify, file_size, etag, bucket, object_name, metadata):
         """ 

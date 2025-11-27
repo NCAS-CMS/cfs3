@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock
-from cfs3.s3core import get_client, get_locations
 from cfs3.s3cmd import s3cmd
 import time
 import json
