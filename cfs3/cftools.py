@@ -8,7 +8,7 @@ import json
 class CFSplitter:
     """
     Provides a class factory for splitting multivariable files into multiple
-    single variable files, one at a time via the ``split_one'' method. 
+    single variable files, one at a time via the ''split_one'' method. 
     The class contructor sets up the method of handling the metadata and output file names, 
     and where the split files should go.
     """
@@ -105,7 +105,7 @@ class CFSplitter:
 class CFuploader (CFSplitter):
     """
     This a class factory for splitting and uploading multi-variable files.
-    Details of the splitting capability are outlined in the ``CFSplitter''
+    Details of the splitting capability are outlined in the ''CFSplitter''
     documentation, the addition here is the use of the Uploader class
     to carry out uploading to an S3 store, and in doing so, ensure
     that the relevant metadata is assoiciated with the object (as this
@@ -132,25 +132,44 @@ class CFuploader (CFSplitter):
 
 
 class MetaFix:
+    """
+    The MetaFix class is used to provide a factory for fixing the metadata in files, by
+    utilising an external metadata dictionary.
+
+    External metadata is the metadata we want to add or fix from the original field
+    and return for use as metadata outside the file. We define it using a dictionary.
+    The expectation is that values for the metadata will be returned by the
+    apply method as a dictionary, and that where the external metadata is different
+    from the field metadata, we fix the field metadata. The only exception to that
+    is where the external_metadata definition at instantiation has a value of
+    None, in which case the expectation is that the value will be _obtained_ from
+    the field (not corrected). 
+
+    For example::
+
+        external_metadata = {'project':'cmip6','experiment':'dummy2','standard_name':None}
+    
+    We would expect that if the field metadata did not have project or experiment,
+    we would add it, if it did have either and it was different, we would overwrite it, and
+    we are hopefully extracting the standard name from the field and returning it 
+    to ouput metadata.
+
+    Typical usage is within the CFSplitter, e.g::
+
+        external_metadata = {'project':'pytest','experiment':'dummy2','standard_name':None}
+        output_dir = tmp_path
+        metafix = MetaFix(external_metadata)
+        cfs = CFSplitter(meta_handler=metafix, output_folder=output_dir)
+
+    Inside CFSplitter it is used like this to fix the metadata of a CF field,
+    and return the completed metdata::
+    
+        metadata, field = self.meta_handler(filename, field)
+
+    """
     def __init__(self, external_metadata):
-        """ 
-        External metadata is the metadata we want to add or fix from the original field
-        and return for use as metadata outside the file. We define it using a dictionary.
-        The expectation is that values for the metadata will be returned by the
-        apply method as a dictionary, and that where the external metadata is different
-        from the field metadata, we fix the field metadata. The only exception to that
-        is where the external_metadata definition at instantiation has a value of
-        None, in which case the expectation is that the value will be _obtained_ from
-        the field (not corrected). 
-        
-        For example:
-           external_metadata = {'project':'cmip6','experiment':'dummy2','standard_name':None}
-        We would expect that if the field metadata did not have project or experiment,
-        we would add it, if it did have either and it was different, we would overwrite it, and
-        we are hopefully extracting the standard name from the field and returning it 
-        to ouput metadata.
-        """
         self.external = external_metadata
+
     def __call__(self, filename, field):
         properties = field.properties()
         output_metadata = {k:v for k,v in self.external.items()}
@@ -167,12 +186,15 @@ class MetaFix:
         return output_metadata, field 
                 
 class FileNameFix:
+    """ 
+    Used to create suitable filenames based on a DRS and file contents.
+    """
     def __init__(self, drs, filename_map=None, splitter=None):
         """
         Instantiate with a DRS list, and if splitting (see the 
         call method documentation), a filename_map to be used
         to map the parts of the filename onto terms. To split
-        using a more complicated method than just split('_'),
+        using a more complicated method than just `split('_')`,
         pass a function for that!
         """
         self.drs = drs
@@ -184,18 +206,19 @@ class FileNameFix:
         Calculate an appropriate filename for an output file.
         
         The algorithm used 
-        1. parses the provided DRS for terms which start with !, these are calculated
-        from the field (details of the options there are discussed below).
+
+        1. parses the provided DRS for terms which start with `!`, these are calculated from the field (details of the options there are discussed below).
         2. extracts any DRS values which are keys in the provided metadata, and
-        3. if self.filename_map is not None, looks for the other DRS values from the 
-        filename (the method is discussed below).
+        3. if `self.filename_map` is not `None`, looks for the other DRS values from the filename (the method is discussed below).
 
+        
         For step 1: we understand 
-        - !ncname, which will extract the netcdf variable name associated with the field.
-        - !freq, which will attempt to use the cell method and cell bounds to establish
-        a frequency.
+        
+        - `!ncname`, which will extract the netcdf variable name associated with the field.
+        - `!freq`, which will attempt to use the cell method and cell bounds to establish a frequency.
 
-        For step 3: if self.filename_map is not None, the provided filename is split 
+
+        For step 3: if `self.filename_map` is not `None`, the provided filename is split 
         using the splitter function, and DRS terms are extracted from the resulting
         dictionary. 
        

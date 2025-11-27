@@ -27,6 +27,8 @@ user workflows to achieve these outcomes.
 
 .. autoclass:: cfs3.FileNameFix
    :members:
+   :special-members: __init__,__call__
+
 
 Context
 ----------
