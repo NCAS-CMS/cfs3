@@ -13,6 +13,20 @@ the performance mitigations outlined in :ref:`object_stores`:
 The ``cftools`` packages provide classes that can be incorporated in 
 user workflows to achieve these outcomes.
 
+Context
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   chunking
+   repacking
+
+
+Classes 
+----------
+
+
 
 .. autoclass:: cfs3.CFSplitter
    :members:
@@ -29,13 +43,4 @@ user workflows to achieve these outcomes.
    :members:
    :special-members: __init__,__call__
 
-
-Context
-----------
-
-.. toctree::
-   :maxdepth: 1
-
-   chunking
-   repacking
 

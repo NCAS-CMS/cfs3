@@ -1,5 +1,4 @@
 .. _object_stores:
-
 Object Store Basics
 *************************
 

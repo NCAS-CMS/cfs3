@@ -8,5 +8,9 @@ cfs3 Documentation!
    introduction
    s3view
    cftools
-   changelog
 
+
+.. toctree::
+   :hidden:
+
+   changelog

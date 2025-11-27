@@ -9,6 +9,16 @@ import cfs3
 root = Path(__file__).absolute().parent.parent
 sys.path.insert(0, str(root))
 
+# If extensions (or modules to document with autodoc) are in another directory,
+# add these directories to sys.path here. If the directory is relative to the
+# documentation root, use os.path.abspath to make it absolute, like shown here.
+
+root = Path(__file__).absolute().parent.parent
+sys.path.insert(0, str(root))
+exts = root/'doc/ext'
+sys.path.insert(0, str(exts))
+
+
 # -----------------------------------------------------------------------------
 # Basic project information
 # -----------------------------------------------------------------------------
@@ -54,7 +64,7 @@ autodoc_mock_imports = [
     "psutil", "stratify", "cf", "cfdm", "distributed"
 ]
 
-templates_path = ["_templates"]
+templates_path = [str(Path(__file__).parent / "_templates")]
 exclude_patterns = []
 
 # -----------------------------------------------------------------------------
@@ -65,15 +75,15 @@ html_theme = "pydata_sphinx_theme"
 
 #html_logo = "figures/cfs3-logo.png"
 
+html_sidebars = {
+    "**": ["sidebar-nav-bs.html"]
+}
+
 html_theme_options = {
     "navigation_with_keys": True,
     "show_nav_level": 2,   # show some nested pages
     "secondary_sidebar_items": ["page-toc"],  # right-side table of contents
-}
-
-# Optional: override sidebar layout (usually not required)
-html_sidebars = {
-    "**": ["sidebar-nav-bs.html", "sidebar-ethical-ads.html"]
+    "primary_sidebar_end": ["cfs3_resources.html"]
 }
 
 html_short_title = f"cfs3 {release}"
