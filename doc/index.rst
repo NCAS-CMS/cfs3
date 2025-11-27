@@ -1,12 +1,12 @@
-Welcome to the cfs3 Documentation!
+cfs3 Documentation!
 =========================================
 
-.. include:: _sidebar.rst.inc
+.. toctree::
+   :caption: cfs3
+   :maxdepth: 2
 
-
-Indices and tables
-====================
-
-* :ref:`genindex`
-* :ref:`search`
+   introduction
+   s3view
+   cftools
+   changelog
 
