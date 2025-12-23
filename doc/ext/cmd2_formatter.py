@@ -1,8 +1,7 @@
 import inspect
 import textwrap
 import cmd2
-from sphinx.ext.autodoc import ClassDocumenter, MethodDocumenter, \
-    AttributeDocumenter
+from sphinx.ext.autodoc import ClassDocumenter, MethodDocumenter
 
 # ---------------------------------------------------------------------
 # Helper functions for argparse formatting
@@ -69,7 +68,6 @@ class Cmd2ClassDocumenter(ClassDocumenter):
         """Filter to only show user-defined do_* methods."""
         ret = []
 
-        whitelist = getattr(self.object, "_autodoc_attrs", [])
 
         for member_obj in members:
 

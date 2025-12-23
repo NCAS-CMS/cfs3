@@ -12,7 +12,7 @@ except ImportError:
         def __style(string, col):
             """ Colour a string with a particular style """
             return ansi.style(string, fg=col.lower())
-    except:
+    except Exception:
         # Fallback if cmd2 not available or API changed
         def __style(string, col):
             """ Colour a string with a particular style """
