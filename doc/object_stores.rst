@@ -1,4 +1,5 @@
 .. _object_stores:
+
 Object Store Basics
 *************************
 
@@ -8,8 +9,7 @@ them with traditional file systems.
 
 There are two key distinctions in practice:
 
-- Object stores are designed for remote access, using HTTP-based protocols, whereas traditional
-  file systems are designed for local access.
+- Object stores are designed for remote access, using HTTP-based protocols, whereas traditional file systems are designed for local access.
 - Object stores manage data as discrete immutable objects, each with its own identifier (key).
 
 
@@ -93,6 +93,7 @@ There are three mitigation strategies for improving performance on object stores
 1. use of parallel reads, 
 2. good use of chunking, and 
 3. consolidating the b-tree indices together in one place ("repacking").
+   
 
 Many advocates of Zarr have conflated thes use of Zarr with the use of these mitigation strategies: 
 for sure, using Zarr means thatone can have a pure-python stack suitable for parallelism, that one has 

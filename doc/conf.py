@@ -24,8 +24,8 @@ sys.path.insert(0, str(exts))
 # -----------------------------------------------------------------------------
 
 project = "cfs3"
-author = "cfs3 Development Team"
-copyright = f"{datetime.now().year}, cfs3 Development Team"
+author = "Bryan Lawrence et al."
+copyright = f"{datetime.now().year}, cfs3 contributors"
 
 version = ".".join(cfs3.__version__.split(".")[0:1])
 release = cfs3.__version__
@@ -75,19 +75,36 @@ html_theme = "pydata_sphinx_theme"
 
 #html_logo = "figures/cfs3-logo.png"
 
+# Configure sidebars - hide left, show navigation on right
 html_sidebars = {
-    "**": ["sidebar-nav-bs.html"]
+    "**": []  # Hide left sidebar completely
 }
 
 html_theme_options = {
+    # Navigation
     "navigation_with_keys": True,
-    "show_nav_level": 2,   # show some nested pages
-    "secondary_sidebar_items": ["page-toc"],  # right-side table of contents
-    "primary_sidebar_end": ["cfs3_resources.html"]
+    "navbar_align": "left",
+    "show_prev_next": True,
+    
+    # Hide left sidebar
+    "show_nav_level": 0,
+    
+    # Right sidebar - show page TOC
+    "secondary_sidebar_items": ["page-toc", "edit-this-page"],
+    
+    # Header - add navigation to top
+    "navbar_end": ["navbar-icon-links", "theme-switcher"],
+    "navbar_center": ["navbar-nav"],  # Shows main navigation in header
+    
+    # Footer
+    "footer_start": ["copyright"],
+    "footer_end": ["sphinx-version"],
 }
 
+html_title = f"cfs3 {release}"
 html_short_title = f"cfs3 {release}"
 html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 
 # -----------------------------------------------------------------------------
 # Intersphinx cross-links
