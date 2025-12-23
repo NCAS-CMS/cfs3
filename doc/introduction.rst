@@ -1,22 +1,6 @@
 Introduction
 ***************
 
-Object stores have properties which differ from traditional file systems (see :ref:`object_stores`), this package
-provides a command line utility and some library functions. which exploit a combination of the CF
-standards (http://www.cfconventions.org) and external metadata which conform to a :ref:`DRS`, to aid in 
-efficient use of object stores.
-
-Background
---------------
-
-More detail on object stores and metadata are described here:
-
-.. toctree::
-   :maxdepth: 2
-   
-   object_stores
-   metadata
-
 Tools and software
 --------------------
 
@@ -33,5 +17,24 @@ There are currently two sets of tools within this package:
   include the metadata which supports the efficient access patterns used by ``s3view`` (and the
   information necessary to build catalogs).  These tools also include utilities to help with
   the rechunking of data to make it more suitable for access on object stores.
+
+Background
+--------------
+
+What are object stores?
+Object stores have properties which differ from traditional file systems (see :ref:`object_stores`), 
+this package provides a command line utility and some library functions which exploit a combination of the CF
+standards (http://www.cfconventions.org) and external metadata which conform to a :ref:`DRS`, to aid in 
+efficient use of object stores.
+
+More detail on object stores and metadata are described here:
+
+.. toctree::
+   :maxdepth: 1
+   
+   object_stores
+   metadata
+
+
 
 

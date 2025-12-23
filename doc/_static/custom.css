@@ -1,0 +1,88 @@
+/* Custom navbar styling */
+.bd-header,
+.navbar-header-items {
+    background-color: #186f4d !important;
+}
+
+.navbar-header-items,
+.navbar-header-items a,
+.navbar-header-items .navbar-nav .nav-link {
+    color: white !important;
+}
+
+.navbar-header-items a:hover,
+.navbar-header-items .navbar-nav .nav-link:hover {
+    color: #f0f0f0 !important;
+}
+
+/* Brand/logo text - green background, white text */
+.navbar-brand.logo {
+    background-color: #186f4d !important;
+    padding: 0.5rem 1rem !important;
+}
+
+.navbar-brand.logo .logo__title,
+.navbar-brand.logo .title {
+    color: white !important;
+}
+
+.navbar-brand.logo:hover .logo__title,
+.navbar-brand.logo:hover .title {
+    color: #f0f0f0 !important;
+}
+
+/* Burger menu icons - white color */
+.pst-navbar-icon,
+.navbar-toggler,
+.navbar-toggler-icon,
+button.pst-navbar-icon {
+    color: white !important;
+    filter: brightness(0) invert(1);
+}
+
+.navbar-toggler:hover {
+    opacity: 0.8;
+}
+
+/* Move main content to the left to align with navbar start */
+.bd-container {
+    grid-template-columns: 1fr !important;
+}
+
+.bd-main {
+    margin-left: 0 !important;
+    grid-column: 1 !important;
+}
+
+.bd-content {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+}
+
+.bd-article-container {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+}
+
+/* Remove any responsive margins */
+@media (min-width: 768px) {
+    .bd-main,
+    .bd-content,
+    .bd-article-container {
+        margin-left: 0 !important;
+        padding-left: 1rem !important;
+    }
+}
+
+/* Dropdown menus if any */
+.navbar-header-items .dropdown-menu {
+    background-color: #186f4d !important;
+}
+
+.navbar-header-items .dropdown-item {
+    color: white !important;
+}
+
+.navbar-header-items .dropdown-item:hover {
+    background-color: #145a3e !important;
+}

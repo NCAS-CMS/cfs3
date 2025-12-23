@@ -15,6 +15,7 @@ app = sphinx.application.Sphinx(
     confdir=src_dir,
     outdir=build_dir,
     doctreedir=doctreedir,
-    buildername=builder
+    buildername=builder,
+    freshenv=True  # Force fresh environment, ignoring cached data
 )
 app.build(force_all=True)
