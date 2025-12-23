@@ -1,9 +1,22 @@
-from cmd2 import Fg, ansi
 import logging
 
-def __style(string, col):
-    """ Colour a string with a particular style """
-    return ansi.style(string, fg=Fg[col.upper()])
+try:
+    from cmd2 import Fg, ansi
+    def __style(string, col):
+        """ Colour a string with a particular style """
+        return ansi.style(string, fg=Fg[col.upper()])
+except ImportError:
+    # Newer cmd2 versions use different API
+    try:
+        from cmd2 import ansi
+        def __style(string, col):
+            """ Colour a string with a particular style """
+            return ansi.style(string, fg=col.lower())
+    except:
+        # Fallback if cmd2 not available or API changed
+        def __style(string, col):
+            """ Colour a string with a particular style """
+            return string
 
 def _i(string, col='green'):
     """ Info string """
