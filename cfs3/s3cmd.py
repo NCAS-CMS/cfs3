@@ -4,7 +4,12 @@ from pathlib import Path
 from cfs3.s3core import get_client, get_locations, lswild, desanitise_metadata
 from cfs3.skin import _i, _e, _p, _err, fmt_size, fmt_date, ColourFormatter
 from minio.deleteobjects import DeleteObject
-from minio.commonconfig import CopySource, Tags
+from minio.commonconfig import CopySource
+try:
+    from minio.commonconfig import Tags
+except ImportError:
+    # Older versions of minio have Tags in tagging module
+    from minio.tagging import Tags  # type: ignore
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import itertools
 from io import StringIO
