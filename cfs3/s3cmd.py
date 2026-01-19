@@ -4,8 +4,7 @@ from pathlib import Path
 from cfs3.s3core import get_client, get_locations, lswild, desanitise_metadata
 from cfs3.skin import _i, _e, _p, _err, fmt_size, fmt_date, ColourFormatter
 from minio.deleteobjects import DeleteObject
-from minio.commonconfig import CopySource
-from minio.tagging import Tags
+from minio.commonconfig import CopySource, Tags
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import itertools
 from io import StringIO
@@ -155,9 +154,9 @@ class s3cmd(cmd2.Cmd):
     """
 
     _autodoc_attrs = ['pipe_producers', 'pipe_consumers']
-    pipe_producers = ['ls',]
+    pipe_producers = ['ls', 'drsview']
     """ List of commands that can produce content to consume via internal pipe "::" """
-    pipe_consumers = ['p5dump',]
+    pipe_consumers = ['p5dump', 'ls']
     """ List of commands that can consume content from an internal pipe "::" """
     allow_redirection = True
 
@@ -301,6 +300,8 @@ class s3cmd(cmd2.Cmd):
         else:
             prefix = path
         # this is a generator
+        if self.bucket is None:
+            return 0, 0, 0, [], []
         objects = self.client.list_objects(self.bucket,
                                            include_user_meta=True,
                                            prefix=prefix)
@@ -310,7 +311,7 @@ class s3cmd(cmd2.Cmd):
             objects = list(itertools.islice(objects, limit))
           
         if match is not None:
-            objects = [o for o in objects if Path(o.object_name).match(match)]
+            objects = [o for o in objects if o.object_name and Path(o.object_name).match(match)]
 
         sum = 0
         files = 0
@@ -326,7 +327,7 @@ class s3cmd(cmd2.Cmd):
                 dirs += 1
                 mydirs.append([o.object_name, fmt_size(dsum)])
             else:
-                sum += o.size
+                sum += o.size if o.size is not None else 0
                 files += 1
                 myfiles.append({'n': o.object_name, 
                                 's': fmt_size(o.size),
@@ -397,7 +398,10 @@ class s3cmd(cmd2.Cmd):
         Handles internal piping using '::'. Splits the line into LHS and RHS.
         Executes LHS first (output is cached), then returns RHS to be executed next.
         """
-        line = statement.raw  # get raw input
+        if isinstance(statement, cmd2.parsing.Statement):
+            line = statement.raw # get raw input
+        else:
+            line = statement  
         self.log.debug(f'[precmd] received: {repr(line)}')
         self.log.debug(f'[precmd] buckets are {self.buckets}')
 
@@ -416,6 +420,9 @@ class s3cmd(cmd2.Cmd):
                     self.poutput(_err(f"{rhs_cmd} does not know how to consume previous output"))
                     return ''
 
+                # Set flag to indicate we're in a pipe context
+                self._in_pipe_context = True
+                
                 # Execute LHS; output should be both cached and suppressed
                 original_stdout = self.stdout        # Save current stdout
                 buffer = StringIO()
@@ -425,9 +432,10 @@ class s3cmd(cmd2.Cmd):
                     self.onecmd_plus_hooks(lhs)
                 finally:
                     self.stdout = original_stdout
+                    self._in_pipe_context = False  # Clear the flag
                     for line in buffer.getvalue().splitlines():
                         if line.startswith('EXCEPTION'):
-                            self.output(line)
+                            self.poutput(line)
                             lhserror = True
                 if lhserror:
                     self.__pipe_input = None
@@ -474,7 +482,7 @@ class s3cmd(cmd2.Cmd):
             if arg == "":
                 pass
             elif arg != self.alias:
-                self.log.debug(f'[do_lb] renavigating for {arg} given alias {self.aliase}')
+                self.log.debug(f'[do_lb] renavigating for {arg} given alias {self.alias}')
                 self._navconfig(arg)
         self.poutput(_i('Buckets:  ')+' '.join(self.buckets))
 
@@ -528,11 +536,33 @@ class s3cmd(cmd2.Cmd):
     ls_args.add_argument('path', nargs='?',help='Path should be a valid path in your current bucket and location, possibly with a wildcard.')
  
     @cmd2.with_argparser(ls_args)
-    def do_ls(self, arg='/'):
+    def do_ls(self, arg):
         """ 
-        List the files and directories in a bucket, potentially with a wild card. 
+        List the files and directories in a bucket, potentially with a wild card.
+        Accepts:
+            - normal path argument
+            - piped filenames from previous command via self.__pipe_input.
 
         """
+        
+        # Handle piped input FIRST - skip all expensive operations
+        if self.__pipe_input:
+            self.log.debug('[ls] Processing piped input')
+            # Piped input is a list of filenames
+            piped_files = []
+            for line in self.__pipe_input[1:]:  # Skip header line
+                if line.strip():
+                    piped_files.append(line.strip())
+            
+            if not piped_files:
+                self.poutput(_err("No files provided via pipe"))
+                return
+            
+            # Show the piped files - simple format
+            self.houtput(_i(f'Received {len(piped_files)} files from pipe:'))
+            width = arg.width
+            self.cached_columnize([Path(f).name for f in piped_files], display_width=width)
+            return
 
         def reorder(mymeta):
             """ More interesting order of user metadta """
@@ -546,7 +576,6 @@ class s3cmd(cmd2.Cmd):
             for p in copied:
                 result[p]=mymeta[p]
             return result
-
 
         if self.path is None: 
             self.path = '/'
@@ -668,7 +697,7 @@ class s3cmd(cmd2.Cmd):
                 return
         objects = self.client.list_objects(self.bucket, prefix=self.path)
         if path is not None:
-            objects = [o for o in objects if Path(o.object_name).match(path)]
+            objects = [o for o in objects if o.object_name and Path(o.object_name).match(path)]
 
         matches = []
         with ThreadPoolExecutor() as executor:
@@ -706,11 +735,13 @@ class s3cmd(cmd2.Cmd):
     def complete_cd(self, text, line, start_index, end_index):
         """ Used for tab completing directories"""
         prefix = self.__handle_path(text)
+        if self.bucket is None:
+            return []
         mydirs = [o.object_name for o in self.client.list_objects(self.bucket,prefix=prefix) if o.is_dir]
         if text:
             return [
                 adir for adir in mydirs
-                if adir.startswith(text)
+                if adir and adir.startswith(text)
             ]
         else:
             return mydirs
@@ -727,11 +758,11 @@ class s3cmd(cmd2.Cmd):
         self.buckets = [b.name for b in self.client.list_buckets()]
         
         if bucket_name in self.buckets:
-            self.poutput(_err(f'Bucket {bucket_name} already exits')) 
-            self.cb(None)
+            self.poutput(_err(f'Bucket {bucket_name} already exits'))
+            return
         r = self.client.make_bucket(bucket_name)
         if r:
-            self.poutput(self._err('Unable to make bucket properly'))
+            self.poutput(_err('Unable to make bucket properly'))
             return 
         self.buckets.append(bucket_name)
         return self.do_cb(f'cb {bucket_name}')
@@ -749,16 +780,15 @@ class s3cmd(cmd2.Cmd):
             return
         objects = []
         for a in arg.targets:
-            objects = self.client.list_objects(self.bucket, prefix=self.path)
-            objects = [o.object_name for o in objects if Path(o.object_name).match(a)]
+            objs = self.client.list_objects(self.bucket, prefix=self.path)
+            objects.extend([o.object_name for o in objs if o.object_name and Path(o.object_name).match(a)])
         # in principle, with wild cards, we could get duplicates
-        objects = list(set(objects))
+        objects = list(set([o for o in objects if o]))
         if len(objects) > 0:
             self.poutput(_i('\nList of objects for deletion:'))
             self.poutput(_e(" ".join(objects)))
             if self._confirm(_p('Delete these files from {bucket}?')):
-            
-                delete_list = [DeleteObject(o) for o in objects]
+                delete_list = [DeleteObject(o) for o in objects if o]
                 # this would be lazy if I didn't force it with the list and error parsing
                 errors = list(self.client.remove_objects(self.bucket, delete_list))
                 if errors != []:
@@ -783,45 +813,55 @@ class s3cmd(cmd2.Cmd):
         This is an expensive operation as it really involves a server-side copy, not a renaming
         operation as you might expect in a normal file system.
         """
+        if self.bucket is None:
+            self.poutput(_err('You need to select a bucket first'))
+            return
         try:
             source, target = tuple(command.targets)
             self.poutput(_i('Command is mv ')+ source+ _i(' to ')+target)
         except Exception:
             self.poutput(_err(f'Invalid mv command - mv "{command.targets}"'))
-            return self.do_cd(self.path)
+            return self._cd_lander(self.path)
         
-        sfiles = lswild(self.client, self.bucket, source, objects=True)
+        sfiles = lswild(self.client, self.bucket, source, objects=True)  # type: ignore
+        # Type hint: sfiles should be a list of objects with object_name, size, etag properties
         ncopies = len(sfiles)
         if ncopies == 0:
             self.poutput(_i('No files match {source}'))
-            return self.do_cd()
+            return self._cd_lander(self.path)
         elif ncopies == 1:
-            if target.endswith('/'):
-                targets = ['f{target}/{sfiles[0].object_name}']
+            first_obj = sfiles[0]
+            if hasattr(first_obj, 'object_name') and first_obj.object_name:  # type: ignore
+                if target.endswith('/'):
+                    targets = [f'{target}{first_obj.object_name}']  # type: ignore
+                else:
+                    targets = [target]
             else:
                 targets = [target] 
         elif ncopies > 1:
             if not target.endswith('/'):
-                self.putput(_err(f'Need a directory target to mv {len(sfiles)} files -  target must end with a /'))
-                return self.do_cd()
-            targets = [f'{target}{o.object_name}' for o in sfiles]
-        volume = fmt_size(sum([o.size for o in sfiles]))
+                self.poutput(_err(f'Need a directory target to mv {len(sfiles)} files -  target must end with a /'))
+                return self._cd_lander(self.path)
+            targets = [f'{target}{o.object_name}' for o in sfiles if hasattr(o, 'object_name') and o.object_name]  # type: ignore
+        volume = fmt_size(sum([o.size if hasattr(o, 'size') and o.size else 0 for o in sfiles]))  # type: ignore
 
         self.poutput(_i('\nList of movements:'))
         for o,t in zip(sfiles,targets):
-            self.poutput(_e(f'mv {o.object_name} to {t}'))
+            if hasattr(o, 'object_name') and o.object_name:  # type: ignore
+                self.poutput(_e(f'mv {o.object_name} to {t}'))  # type: ignore
         self.poutput(_p('This move is done as a server side copy - it is not "just" a rename!'))
         if self._confirm(_p(f'Move these files ({volume}) ?')):
             for o,t in zip(sfiles, targets):
-                src = CopySource(self.bucket, o.object_name)
-                result = self.client.copy_object(self.bucket, t, src)
-                if o.etag != result.etag:
-                    self.poutput(_err(f'Failed copy of {o.object_name} - mv operation terminated'))
-                    return self.cd(self.path)
-                self.poutput(f'Created {_e(result.object_name)}')
-                self.client.remove_object(self.bucket,o.object_name)
+                if hasattr(o, 'object_name') and o.object_name and self.bucket:  # type: ignore
+                    src = CopySource(self.bucket, o.object_name)  # type: ignore
+                    result = self.client.copy_object(self.bucket, t, src)
+                    if hasattr(o, 'etag') and hasattr(result, 'etag') and o.etag != result.etag:  # type: ignore
+                        self.poutput(_err(f'Failed copy of {o.object_name} - mv operation terminated'))  # type: ignore
+                        return self._cd_lander(self.path)
+                    self.poutput(f'Created {_e(result.object_name)}')
+                    self.client.remove_object(self.bucket,o.object_name)  # type: ignore
 
-        return self.do_cd(self.path)
+        return self._cd_lander(self.path)
 
     tag_args = cmd2.Cmd2ArgumentParser()
     tag_args.add_argument('path', nargs=1,help='Path should be a valid object match (i.e. an object path, possibly with a wildcard).')
@@ -845,7 +885,7 @@ class s3cmd(cmd2.Cmd):
         value = targets.value[0]
         objects = self.client.list_objects(self.bucket,prefix=prefix)
         for o in objects:
-            if o.is_dir:
+            if o.is_dir or not o.object_name:
                 continue
             tags = o.tags
             if tags is None:
@@ -874,8 +914,9 @@ class s3cmd(cmd2.Cmd):
                 if self.path == "":
                     path = '/'
                 else:
-                    path = self.path
-                self.poutput(_i('Current working directory ') + path + _i(' in bucket ') + self.bucket)
+                    path = self.path if self.path else '/'
+                bucket_name = self.bucket if isinstance(self.bucket, str) else str(self.bucket)
+                self.poutput(_i('Current working directory ') + path + _i(' in bucket ') + bucket_name)
             else:
                 self.do_lb()
 
@@ -907,6 +948,14 @@ class s3cmd(cmd2.Cmd):
         if self.path is None:
             self.path = '/'
 
+        # Check cache and start method
+        cache_available = self.output_handler.start_method('do_drsview', arg)
+        if cache_available:
+            self.poutput(_i('Using cached information'))
+            for line in cache_available:
+                self.poutput(line)
+            return
+
         extras = arg.path
         volume, nfiles, ndirs, mydirs, myfiles = self._recurse(self.path, extras)
 
@@ -918,22 +967,29 @@ class s3cmd(cmd2.Cmd):
         if arg.output:
             output_arg = arg.output[0]
         else:
-            output_arg='drs'
+            # When being used for piping (detected via output_handler being in pipe mode)
+            # and selection is provided, default to list output
+            if selects and hasattr(self, '_in_pipe_context') and self._in_pipe_context:
+                output_arg = 'list'
+                self.poutput(_i('Auto-selecting list output for piping'))
+            else:
+                output_arg='drs'
 
         if output_arg == 'list':
             if not arg.select:
                 self.poutput(_e('List output only available with selection'))
                 return
             for f in myfiles:
-                self.poutput(f['n'])
+                self.houtput(f['n'])
             if skipped: 
                 self.poutput(_e('Skipped the following files (no DRS match):'))
                 for f in skipped:
                     self.poutput(f)
+            self.output_handler.end_method_and_cache()
             return
         elif output_arg != 'drs':
             self.poutput(_e(f'output options are "drs" or "list" (you said "{arg.output}")'))
-
+            return
          
         #FIXME: move metadata select out of here, it doesn't work with drs_select for now.
         if arg.use_metadata:
@@ -983,12 +1039,14 @@ class s3cmd(cmd2.Cmd):
         if text =='*':
             raise ValueError('Cannot tab complete wildcards')
         
+        if self.bucket is None:
+            return []
         prefix = self.__handle_path(text)
-        myobjs = [o.object_name for o in self.client.list_objects(self.bucket,prefix=prefix) if not o.is_dir]
+        myobjs = [o.object_name for o in self.client.list_objects(self.bucket,prefix=prefix) if not o.is_dir and o.object_name]
         if text:
             return [
                 adir for adir in myobjs
-                if adir.startswith(text)
+                if adir and adir.startswith(text)
             ]
         else:
             return myobjs
@@ -1042,13 +1100,15 @@ class s3cmd(cmd2.Cmd):
         if text =='*':
             raise ValueError('Cannot tab complete wildcards')
         
+        if self.bucket is None:
+            return []
         self.log.debug('[complete_p5dump] Completion handler active')
         prefix = self.__handle_path(text)
-        myobjs = [o.object_name for o in self.client.list_objects(self.bucket,prefix=prefix) if not o.is_dir]
+        myobjs = [o.object_name for o in self.client.list_objects(self.bucket,prefix=prefix) if not o.is_dir and o.object_name]
         if text:
             return [
                 adir for adir in myobjs
-                if adir.startswith(text)
+                if adir and adir.startswith(text)
             ]
         else:
             return myobjs

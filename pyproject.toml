@@ -34,6 +34,7 @@ dependencies = [
     'cf-python',
     'pyfive',
     'fsspec',
+    'udunits2'
 ]
 description = "Lightweight tool for investigating data files in an s3 repository"
 license = {text = "BSD License, Version 3-Clause"}

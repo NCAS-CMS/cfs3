@@ -2,7 +2,6 @@ import os
 import time
 import uuid
 import pytest
-import docker
 import json
 import tempfile
 from minio import Minio
@@ -11,6 +10,14 @@ from requests.exceptions import ConnectionError
 import subprocess
 from .utils.make_test_data import make_test_netcdf_with_coords
 import logging
+
+# Make docker import optional - only required for tests that use minio fixtures
+try:
+    import docker
+    DOCKER_AVAILABLE = True
+except ImportError:
+    DOCKER_AVAILABLE = False
+    docker = None  # type: ignore
 
 
 MINIO_IMAGE = "quay.io/minio/minio:latest"
@@ -42,9 +49,15 @@ def silence_noisy_loggers():
 @pytest.fixture(scope="session")
 def minio_service():
     """Run a temporary MinIO server in Docker and return a configured client."""
+    if not DOCKER_AVAILABLE:
+        pytest.skip("Docker not available - skipping tests that require MinIO")
+    
     _cleanup_old_minio()
 
-    client = docker.from_env()
+    try:
+        client = docker.from_env()
+    except Exception as e:
+        pytest.skip(f"Docker daemon not running or not accessible: {e}")
 
     container = client.containers.run(
         MINIO_IMAGE,
