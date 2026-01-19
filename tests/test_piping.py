@@ -43,9 +43,9 @@ def test_drsview_to_ls_piping(mock_s3cmd):
     
     # Mock the _recurse method to return test files
     test_files = [
-        {'n': 'tas_HadGEM3-GC31-LM_historical_r1i1p1f3_6hrPt_1950-01_N96.nc', 's': 1024, 'd': '2024-01-01'},
-        {'n': 'tas_HadGEM3-GC31-LM_historical_r1i1p1f3_6hrPt_1950-02_N96.nc', 's': 2048, 'd': '2024-01-02'},
-        {'n': 'pr_HadGEM3-GC31-LM_historical_r1i1p1f3_6hrPt_1950-01_N96.nc', 's': 1536, 'd': '2024-01-01'},
+        {'n': 'tas_HadGEM3-GC31-LM_historical_r1i1p1f3_6hrPt_1950-01_N96.nc', 's': '1.0 KiB', 'd': '2024-01-01'},
+        {'n': 'tas_HadGEM3-GC31-LM_historical_r1i1p1f3_6hrPt_1950-02_N96.nc', 's': '2.0 KiB', 'd': '2024-01-02'},
+        {'n': 'pr_HadGEM3-GC31-LM_historical_r1i1p1f3_6hrPt_1950-01_N96.nc', 's': '1.5 KiB', 'd': '2024-01-01'},
     ]
     
     mock_s3cmd._recurse = MagicMock(return_value=(
@@ -81,7 +81,13 @@ def test_drsview_to_ls_piping(mock_s3cmd):
 
 
 def test_ls_handles_piped_input(mock_s3cmd):
-    """Test that ls correctly handles piped input."""
+    """Test that ls correctly handles piped input.
+    
+    This test verifies that:
+    1. __pipe_input is properly initialized before calling ls
+    2. ls with no arguments still works (argparser uses defaults)
+    3. Piped input takes precedence over normal ls behavior
+    """
     
     # Simulate piped input (what drsview would produce)
     piped_files = [
@@ -90,9 +96,17 @@ def test_ls_handles_piped_input(mock_s3cmd):
         'tas_HadGEM3-GC31-LM_historical_r1i1p1f3_6hrPt_1950-02_N96.nc',
     ]
     
+    # Initialize __pipe_input before calling onecmd
     mock_s3cmd._s3cmd__pipe_input = piped_files
     
+    # Verify __pipe_input is set correctly before executing command
+    # Note that we expect this normally to be done in the precmd step 
+    assert hasattr(mock_s3cmd, '_s3cmd__pipe_input')
+    assert mock_s3cmd._s3cmd__pipe_input == piped_files
+    
     # Execute ls command through cmd2's command processing
+    # Note: ls called without arguments relies on argparser defaults
+    # This tests that the argument parser correctly handles no args
     mock_s3cmd.onecmd('ls')
     
     # Get the output
@@ -112,7 +126,7 @@ def test_precmd_validates_pipe_commands(mock_s3cmd):
     result = mock_s3cmd.precmd(statement)
     
     output = mock_s3cmd.stdout.getvalue()
-    assert 'cannot produce output' in output or result.raw == ''
+    assert 'cannot produce output' in output or result == ''
     
     # Reset output
     mock_s3cmd.stdout = io.StringIO()
@@ -122,7 +136,7 @@ def test_precmd_validates_pipe_commands(mock_s3cmd):
     result = mock_s3cmd.precmd(statement)
     
     output = mock_s3cmd.stdout.getvalue()
-    assert 'does not know how to consume' in output or result.raw == ''
+    assert 'does not know how to consume' in output or result == ''
 
 
 def test_ls_pipe_consumer(mock_s3cmd):

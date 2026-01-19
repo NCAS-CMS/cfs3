@@ -402,6 +402,13 @@ class s3cmd(cmd2.Cmd):
         """
         Handles internal piping using '::'. Splits the line into LHS and RHS.
         Executes LHS first (output is cached), then returns RHS to be executed next.
+        Args:    statement (cmd2.parsing.Statement or str): The input command line. 
+            (#FIXME I am not quite sure why cmd2 passes a Statement sometimes and a str other times,
+            or indeed, whether this is historical and/or version dependent.)   
+                 
+        Returns:
+            str: The RHS command to be executed next, or the original line if no pipe is detected.  
+        
         """
         if isinstance(statement, cmd2.parsing.Statement):
             line = statement.raw # get raw input
@@ -435,11 +442,17 @@ class s3cmd(cmd2.Cmd):
                 lhserror = False
                 try:
                     self.onecmd_plus_hooks(lhs)
+                except Exception as e:
+                    # Catch any exceptions during LHS execution
+                    self.poutput(_err(f'Error in left-hand side of pipe: {e}'))
+                    lhserror = True
                 finally:
                     self.stdout = original_stdout
                     self._in_pipe_context = False  # Clear the flag
+                    # Check output for error indicators
                     for line in buffer.getvalue().splitlines():
-                        if line.startswith('EXCEPTION'):
+                        line_upper = line.upper()
+                        if any(err_pattern in line_upper for err_pattern in ['EXCEPTION', 'ERROR', 'FAILED']):
                             self.poutput(line)
                             lhserror = True
                 if lhserror:
@@ -763,7 +776,7 @@ class s3cmd(cmd2.Cmd):
         self.buckets = [b.name for b in self.client.list_buckets()]
         
         if bucket_name in self.buckets:
-            self.poutput(_err(f'Bucket {bucket_name} already exits'))
+            self.poutput(_err(f'Bucket {bucket_name} already exists'))
             return
         r = self.client.make_bucket(bucket_name)
         if r:
@@ -788,11 +801,12 @@ class s3cmd(cmd2.Cmd):
             objs = self.client.list_objects(self.bucket, prefix=self.path)
             objects.extend([o.object_name for o in objs if o.object_name and Path(o.object_name).match(a)])
         # in principle, with wild cards, we could get duplicates
-        objects = list(set([o for o in objects if o]))
+        # we have already ensured that the object names are not None
+        objects = list(set(objects))
         if len(objects) > 0:
             self.poutput(_i('\nList of objects for deletion:'))
             self.poutput(_e(" ".join(objects)))
-            if self._confirm(_p('Delete these files from {bucket}?')):
+            if self._confirm(_p(f'Delete these files from {self.bucket}?')):
                 delete_list = [DeleteObject(o) for o in objects if o]
                 # this would be lazy if I didn't force it with the list and error parsing
                 errors = list(self.client.remove_objects(self.bucket, delete_list))
@@ -832,7 +846,7 @@ class s3cmd(cmd2.Cmd):
         # Type hint: sfiles should be a list of objects with object_name, size, etag properties
         ncopies = len(sfiles)
         if ncopies == 0:
-            self.poutput(_i('No files match {source}'))
+            self.poutput(_i(f'No files match {source}'))
             return self._cd_lander(self.path)
         elif ncopies == 1:
             first_obj = sfiles[0]
@@ -920,7 +934,7 @@ class s3cmd(cmd2.Cmd):
                     path = '/'
                 else:
                     path = self.path if self.path else '/'
-                bucket_name = self.bucket if isinstance(self.bucket, str) else str(self.bucket)
+                bucket_name = self.bucket #if isinstance(self.bucket, str) else str(self.bucket)
                 self.poutput(_i('Current working directory ') + path + _i(' in bucket ') + bucket_name)
             else:
                 self.do_lb()
