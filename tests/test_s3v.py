@@ -5,8 +5,6 @@ import time
 import json
 import io
 
-#import cmd2
-#cmd2.ansi.allow_style = cmd2.ansi.AllowStyle.NEVER
 
 dummy_config = '{"aliases":{"loc1":{"url":"https://blah.com","accessKey":"a key","secretKey":"b key","api":"S3v4"}}}'
 
