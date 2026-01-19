@@ -3,11 +3,10 @@ from unittest.mock import MagicMock
 from cfs3.s3cmd import s3cmd
 import time
 import json
-import cmd2
 import io
 
-
-cmd2.ansi.allow_style = cmd2.ansi.AllowStyle.NEVER
+#import cmd2
+#cmd2.ansi.allow_style = cmd2.ansi.AllowStyle.NEVER
 
 dummy_config = '{"aliases":{"loc1":{"url":"https://blah.com","accessKey":"a key","secretKey":"b key","api":"S3v4"}}}'
 
@@ -24,9 +23,9 @@ def mock_cfs3(mocker):
                                             MagicMock(name='file2',size=2^8, isdir=False, last_modified=time.time()-86400)]
  
     
-    # Redirect stdout/stderr to StringIO to prevent cmd2 errors
+    # Redirect stdout to StringIO to prevent cmd2 errors
+    # Note: cmd2.Cmd doesn't have stderr, only stdout
     app.stdout = io.StringIO()
-    app.stderr = io.StringIO()
     
     return app
 
