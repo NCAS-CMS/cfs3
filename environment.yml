@@ -16,8 +16,8 @@ dependencies:
   - udunits2
   # for tests
   - pytest
-  - pytest-html !=2.1.0
-  - pytest-metadata >=1.5.1
+  - pytest-html
+  - pytest-metadata
   - pytest-mock
   - pytest-xdist
   # for docs
