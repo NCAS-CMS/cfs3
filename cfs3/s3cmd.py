@@ -751,7 +751,7 @@ class s3cmd(cmd2.Cmd):
         content in a bucket.
         """
         if self.bucket is None:
-            self.poutput(_err('You need to select a bucket first ("cd bucket_name")'))
+            self.poutput(_err('You need to select a bucket first ("cb bucket_name")'))
             return
         path = line.path
         self.path = self.__handle_path(path)
