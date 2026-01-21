@@ -38,7 +38,7 @@ description = "Lightweight tool for investigating data files in an s3 repository
 license = "BSD-3-Clause"
 license-files = ["LICENSE.txt"]
 name = "cfs3"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [project.scripts]
 s3view = "cfs3.s3view:main"
