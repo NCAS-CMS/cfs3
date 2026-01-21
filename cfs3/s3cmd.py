@@ -462,10 +462,11 @@ class s3cmd(cmd2.Cmd):
                     self.onecmd_plus_hooks(lhs)
                 except Exception as e:
                     # Catch any exceptions during LHS execution
+                    self.stdout = original_stdout  # Restore stdout BEFORE printing error
                     self.poutput(_err(f'Error in left-hand side of pipe: {e}'))
                     lhserror = True
                 finally:
-                    self.stdout = original_stdout
+                    self.stdout = original_stdout  # Ensure stdout is always restored, safe to do twice
                     self._in_pipe_context = False  # Clear the flag
                     # Check output for error indicators
                     for line in buffer.getvalue().splitlines():
@@ -612,10 +613,18 @@ class s3cmd(cmd2.Cmd):
                 self.poutput(_err("No files provided via pipe"))
                 return
             
-            # Show the piped files - simple format
+            # Show the piped files - simple format (no caching)
             self.houtput(_i(f'Received {len(piped_files)} files from pipe:'))
-            width = arg.width
-            self.cached_columnize([Path(f).name for f in piped_files], display_width=width)
+            width = getattr(arg, "width", None)
+            names = [Path(f).name for f in piped_files]
+            if hasattr(self, 'columnize') and width is not None:
+                # Use non-cached columnize if available
+                self.columnize(names, display_width=width)
+            else:
+                # Fallback: one filename per line
+                self.poutput("\n".join(names))
+
+
             return
 
         def reorder(mymeta):
@@ -1056,6 +1065,8 @@ class s3cmd(cmd2.Cmd):
 
         for line in output:
             self.houtput(line)
+        
+        self.output_handler.end_method_and_cache()
             
         
     cfd_args = cmd2.Cmd2ArgumentParser()
