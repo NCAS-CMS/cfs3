@@ -1,7 +1,6 @@
 import cmd2
 import logging
 from pathlib import Path
-from cfs3 import __version__
 from cfs3.s3core import get_client, get_locations, lswild, desanitise_metadata
 from cfs3.skin import _i, _e, _p, _err, fmt_size, fmt_date, ColourFormatter
 from minio.deleteobjects import DeleteObject
@@ -103,7 +102,7 @@ class OutputHandler:
         self.signature = None
 
     @staticmethod
-    def __make_signature(method_name, arg_namespace):
+    def __make_signature(method_name, arg_namespace, path):
         sig_items = []
         for k, v in vars(arg_namespace).items():
             # skip cmd2 internal wrapper objects
@@ -115,20 +114,23 @@ class OutputHandler:
             sig_items.append((k, v))
         # sort for deterministic ordering
         sig_items.sort()
-        return (method_name, tuple(sig_items))
+        return (method_name, tuple(sig_items), path)
+    
 
-    def start_method(self, method_name, arg_namespace):
+    def start_method(self, method_name, arg_namespace, path):
         """
         Call this with at the beginning of a method.
         If this returns anything but None, you have got
         something in the cache, and you can decide what
         you want to do with it.
         """
-        signature = self.__make_signature(method_name, arg_namespace)
+        signature = self.__make_signature(method_name, arg_namespace, path)
         self.signature = signature
+
         if signature in self.cache:
             self.cmd.log.debug('[cache] start')
             self.last_cache = self.cache[signature]
+            self.cmd.log.debug(f'[cache] hit with {len(self.last_cache)} lines for {signature}')
             return self.last_cache
         else:
             self.lines = []
@@ -183,12 +185,17 @@ class s3cmd(cmd2.Cmd):
         #controls level (need to set this to get the logger to process anything, 
         #if this is below the console level, we get nothing).
         self.log.setLevel(logging.INFO)
-
-        self.console = logging.StreamHandler()
-        # if the log level lets it through, this controls the actual output to console
-        self.console.setLevel(logging.INFO)
-        self.console.setFormatter(ColourFormatter('%(levelname)s: %(message)s'))
-        self.log.addHandler(self.console)
+        
+        # Prevent propagation to root logger to avoid duplicate messages
+        self.log.propagate = False
+        
+        # Only add handler if one hasn't been added yet
+        if not self.log.handlers:
+            self.console = logging.StreamHandler()
+            # if the log level lets it through, this controls the actual output to console
+            self.console.setLevel(logging.INFO)
+            self.console.setFormatter(ColourFormatter('%(levelname)s: %(message)s'))
+            self.log.addHandler(self.console)
 
         self.poutput(_i('You have entered a lightweight management tool for organising "files" inside an S3 object store'))
         self.prompt = 's3> '
@@ -494,6 +501,7 @@ class s3cmd(cmd2.Cmd):
         """
         Report the version of cfs3.
         """
+        from cfs3 import __version__
         self.poutput(_i('cfs3 version ') + __version__)
 
     def do_lb(self,arg=None):
@@ -616,7 +624,7 @@ class s3cmd(cmd2.Cmd):
             self.poutput(_err('Unrecognised order option'))
 
 
-        cache_available = self.output_handler.start_method('do_ls', arg)
+        cache_available = self.output_handler.start_method('do_ls', arg, self.path)
         if cache_available:
             self.poutput(_i('Using cached information'))
             #FIXME make that optional, use times etc
@@ -975,7 +983,7 @@ class s3cmd(cmd2.Cmd):
             self.path = '/'
 
         # Check cache and start method
-        cache_available = self.output_handler.start_method('do_drsview', arg)
+        cache_available = self.output_handler.start_method('do_drsview', arg, self.path)
         if cache_available:
             self.poutput(_i('Using cached information'))
             for line in cache_available:
