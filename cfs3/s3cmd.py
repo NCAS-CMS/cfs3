@@ -149,6 +149,16 @@ class OutputHandler:
             self.cmd.log.debug('[cache] not used')
             self.signature = None
 
+    def clear_cache(self):
+        """
+        Clear all cached results
+        """
+        cache_size = len(self.cache)
+        self.cache = {}
+        self.last_cache = None
+        self.cmd.log.debug(f'[cache] cleared {cache_size} entries')
+        return cache_size
+
 
 class s3cmd(cmd2.Cmd):
     """ 
@@ -504,6 +514,17 @@ class s3cmd(cmd2.Cmd):
         from cfs3 import __version__
         self.poutput(_i('cfs3 version ') + __version__)
 
+    def do_clearcache(self, arg):
+        """
+        Clear the output handler cache.
+        
+        The cache stores results from commands like ls and drsview to speed up
+        subsequent calls with the same parameters. Use this command if you need
+        to force a refresh of cached data.
+        """
+        cache_size = self.output_handler.clear_cache()
+        self.poutput(_i(f'Cleared {cache_size} cached entries'))
+
     def do_lb(self,arg=None):
         """ 
         List buckets in the current location.
@@ -624,7 +645,7 @@ class s3cmd(cmd2.Cmd):
             self.poutput(_err('Unrecognised order option'))
 
 
-        cache_available = self.output_handler.start_method('do_ls', arg, self.path)
+        cache_available = self.output_handler.start_method('do_ls', arg, (self.bucket,self.path))
         if cache_available:
             self.poutput(_i('Using cached information'))
             #FIXME make that optional, use times etc
@@ -983,7 +1004,7 @@ class s3cmd(cmd2.Cmd):
             self.path = '/'
 
         # Check cache and start method
-        cache_available = self.output_handler.start_method('do_drsview', arg, self.path)
+        cache_available = self.output_handler.start_method('do_drsview', arg, (self.bucket,self.path))
         if cache_available:
             self.poutput(_i('Using cached information'))
             for line in cache_available:

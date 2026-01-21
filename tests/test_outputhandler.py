@@ -22,7 +22,7 @@ def output_handler(mock_cmd_instance):
 def test_output_handler_signature_same_path(output_handler):
     """Test that same method, args, and path produce the same signature"""
     arg_namespace = Namespace(option1="value1", option2="value2")
-    path = "/bucket/path"
+    path = ("bucket1", "/path")
     
     sig1 = output_handler._OutputHandler__make_signature("test_method", arg_namespace, path)
     sig2 = output_handler._OutputHandler__make_signature("test_method", arg_namespace, path)
@@ -35,8 +35,8 @@ def test_output_handler_signature_same_path(output_handler):
 def test_output_handler_signature_different_paths(output_handler):
     """Test that different paths produce different signatures"""
     arg_namespace = Namespace(option1="value1", option2="value2")
-    path1 = "/bucket/path1"
-    path2 = "/bucket/path2"
+    path1 = ("bucket1", "/path1")
+    path2 = ("bucket1", "/path2")
     
     sig1 = output_handler._OutputHandler__make_signature("test_method", arg_namespace, path1)
     sig2 = output_handler._OutputHandler__make_signature("test_method", arg_namespace, path2)
@@ -49,8 +49,8 @@ def test_output_handler_signature_different_paths(output_handler):
 def test_output_handler_cache_respects_path(output_handler, mock_cmd_instance):
     """Test that cache is keyed by method name, args, AND path"""
     arg_namespace = Namespace(option1="value1")
-    path1 = "/bucket/path1"
-    path2 = "/bucket/path2"
+    path1 = ("bucket1", "/path1")
+    path2 = ("bucket1", "/path2")
     
     # Start method with path1
     result1 = output_handler.start_method("test_cmd", arg_namespace, path1)
@@ -74,7 +74,7 @@ def test_output_handler_cache_respects_path(output_handler, mock_cmd_instance):
 def test_output_handler_cache_respects_method_name(output_handler, mock_cmd_instance):
     """Test that different method names produce different cache entries"""
     arg_namespace = Namespace(option1="value1")
-    path = "/bucket/path"
+    path = ("bucket1", "/path")
     
     # Cache result for method1
     result1 = output_handler.start_method("method1", arg_namespace, path)
@@ -94,7 +94,7 @@ def test_output_handler_cache_respects_method_name(output_handler, mock_cmd_inst
 
 def test_output_handler_cache_respects_arguments(output_handler, mock_cmd_instance):
     """Test that different arguments produce different cache entries"""
-    path = "/bucket/path"
+    path = ("bucket1", "/path")
     
     # Cache result with args1
     args1 = Namespace(option1="value1")
@@ -112,3 +112,26 @@ def test_output_handler_cache_respects_arguments(output_handler, mock_cmd_instan
     result3 = output_handler.start_method("test_method", args1, path)
     assert result3 is not None
     assert result3 == ["result with value1"]
+
+
+def test_output_handler_cache_different_buckets_same_path(output_handler, mock_cmd_instance):
+    """Test that same path in different buckets produces different cache entries"""
+    arg_namespace = Namespace(option1="value1")
+    path_bucket1 = ("bucket1", "/")
+    path_bucket2 = ("bucket2", "/")
+    
+    # Cache result for bucket1
+    result1 = output_handler.start_method("test_cmd", arg_namespace, path_bucket1)
+    assert result1 is None
+    output_handler.lines = ["result from bucket1"]
+    output_handler.end_method_and_cache()
+    
+    # Try with bucket2 (same path, different bucket)
+    result2 = output_handler.start_method("test_cmd", arg_namespace, path_bucket2)
+    assert result2 is None  # Not in cache because bucket is different
+    
+    # Retrieve from bucket1 (should hit cache)
+    result3 = output_handler.start_method("test_cmd", arg_namespace, path_bucket1)
+    assert result3 is not None
+    assert result3 == ["result from bucket1"]
+
