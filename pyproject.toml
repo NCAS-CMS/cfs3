@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    "setuptools>=40.6.0",
-    "setuptools_scm>=6.2",
+    "setuptools>=80",
+    "setuptools_scm>=8",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -12,7 +12,6 @@ authors = [
 classifiers = [
     "Environment :: Console",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
@@ -27,16 +26,17 @@ dynamic = [
     "version",
 ]
 dependencies = [
-    'cmd2>2',
-    'pyreadline3;platform_system=="Windows"',
-    'minio',
     'bitmath',
     'cf-python',
-    'pyfive',
+    'cmd2>2',
     'fsspec',
+    'minio',
+    'pyfive',
+    'pyreadline3;platform_system=="Windows"',
 ]
 description = "Lightweight tool for investigating data files in an s3 repository"
-license = {text = "BSD License, Version 3-Clause"}
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
 name = "cfs3"
 requires-python = ">=3.10"
 
@@ -45,9 +45,11 @@ s3view = "cfs3.s3view:main"
 
 [project.optional-dependencies]
 test = [
+   'docker',
    'pytest',
+   'pytest-metadata',
    'pytest-mock',
-   'docker'
+   'pytest-xdist',
 ]
 dev = [
     'pytest',
@@ -72,10 +74,7 @@ doc = [
 # Documentation = ""
 
 [tool.setuptools]
-include-package-data = true
-license-files = ["LICENSE"]
 packages = ["cfs3"]
-zip-safe = false  # possibly yes
 
 [tool.setuptools.dynamic]
 readme = {file = "README.md", content-type = "text/markdown"}
