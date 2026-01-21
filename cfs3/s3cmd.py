@@ -1,6 +1,7 @@
 import cmd2
 import logging
 from pathlib import Path
+from cfs3 import __version__
 from cfs3.s3core import get_client, get_locations, lswild, desanitise_metadata
 from cfs3.skin import _i, _e, _p, _err, fmt_size, fmt_date, ColourFormatter
 from minio.deleteobjects import DeleteObject
@@ -488,6 +489,12 @@ class s3cmd(cmd2.Cmd):
         self.log.debug(f'[caccol] found {len(tocache)} lines to cache')
         for line in tocache:
             self.houtput(line)
+
+    def do_version(self, arg):
+        """
+        Report the version of cfs3.
+        """
+        self.poutput(_i('cfs3 version ') + __version__)
 
     def do_lb(self,arg=None):
         """ 
