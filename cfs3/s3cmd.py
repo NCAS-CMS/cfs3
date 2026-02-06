@@ -2,7 +2,7 @@ import cmd2
 import logging
 from pathlib import Path
 from cfs3.s3core import get_client, get_locations, lswild, desanitise_metadata
-from cfs3.skin import _i, _e, _p, _err, fmt_size, fmt_date, ColourFormatter
+from cfs3.skin import _i, _e, _p, _err, _log, fmt_size, fmt_date, ColourFormatter
 from minio.deleteobjects import DeleteObject
 from minio.commonconfig import CopySource
 try:
@@ -190,11 +190,11 @@ class s3cmd(cmd2.Cmd):
         # Set include_ipy to True to enable the "ipy" command which runs an interactive IPython shell
         super().__init__(include_ipy=True)
 
-        self.log = logging.getLogger('cfs3iew')
+        self.log = logging.getLogger('cfs3view')
 
         #controls level (need to set this to get the logger to process anything, 
         #if this is below the console level, we get nothing).
-        self.log.setLevel(logging.INFO)
+        self.log.setLevel(logging.WARNING)
         
         # Prevent propagation to root logger to avoid duplicate messages
         self.log.propagate = False
@@ -203,7 +203,7 @@ class s3cmd(cmd2.Cmd):
         if not self.log.handlers:
             self.console = logging.StreamHandler()
             # if the log level lets it through, this controls the actual output to console
-            self.console.setLevel(logging.INFO)
+            self.console.setLevel(logging.WARNING)
             self.console.setFormatter(ColourFormatter('%(levelname)s: %(message)s'))
             self.log.addHandler(self.console)
 
@@ -1000,7 +1000,7 @@ class s3cmd(cmd2.Cmd):
     drs_args.add_argument('-u','--use_metadata',action='store_true',help="build drs-like view from metadata")
     drs_args.add_argument('-s','--select', type=key_value, action='append',
                             help='Specfiy DRS component selections as key=value (multipe -s allowed) and return listing')
-    drs_args.add_argument('-o','--output',default='drs',nargs=1,help='Default output is a DRS view, alternative is "list" view.')
+    drs_args.add_argument('-o','--output',default=['drs'],nargs=1,help='Default output is a DRS view, alternative is "list" view.')
     @cmd2.with_argparser(drs_args)
     def do_drsview(self,arg):
         """ Extract DRS components at location """  
@@ -1028,6 +1028,7 @@ class s3cmd(cmd2.Cmd):
         if selects:
             myfiles, skipped = drs_select(myfiles, selects, arg.drs)
 
+        # arg.output is always a list due to nargs=1 and default=['drs']
         if arg.output:
             output_arg = arg.output[0]
         else:
@@ -1153,10 +1154,13 @@ class s3cmd(cmd2.Cmd):
 
         for input_file in input_files:
             self.log.debug(f'[p5dump] using file [{input_file}]')
-            output = p5view(self.alias, self.bucket, self.path, input_file, 
-                                special = arg.special)
+            # Use the same log level as cfs3's logger
+            output, logs = p5view(self.alias, self.bucket, self.path, input_file, 
+                                special = arg.special, log_level=self.log.level)
             for o in output:
                 self.poutput(o)
+            for log in logs:
+                self.poutput(_log(log))
 
      
     def complete_p5dump(self, text, line, start_index, end_index):
@@ -1199,6 +1203,7 @@ class s3cmd(cmd2.Cmd):
 
         self.log.setLevel(levels[level])
         self.console.setLevel(levels[level])
+        
         self.poutput(f"Logging level set to {level.upper()}")
 
 
