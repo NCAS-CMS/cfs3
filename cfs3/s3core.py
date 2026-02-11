@@ -19,7 +19,7 @@ def get_locations(config_file=None):
     locations = {}
     for k,v in jd.items():
         api = v.get('api')
-        if api != 'S3v4':
+        if api.lower() != 's3v4':
             warnings.warn(f'WARNING: Found unexpected S3 API {api} for {k} in configuration file {config_file}')
         else:
             locations[k]=v
