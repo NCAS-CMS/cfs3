@@ -118,7 +118,6 @@ def drs_process(contents, collapsed, skipped):
             
 
 def drs_pretty(processed_drs, skipped):
-    print('Skipped???', skipped)
     with Capturing() as output:
         for k,v in processed_drs.items():
             print(f'{_i(k)} : {_e(v)}')
